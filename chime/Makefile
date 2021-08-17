@@ -2,6 +2,7 @@
 ESP_HOSTNAME ?= $(if $1,$$ESP_HOSTNAME,$(error You must set 'ESP_HOSTNAME'))
 ESP_NETWORKADDRESS ?= $(if $1,ESP_NETWORKADDRESS,$$ESP_HOSTNAME.local)
 PIO_CLI = ESP_HOSTNAME=$(ESP_HOSTNAME) ESP_NETWORKADDRESS=$(ESP_NETWORKADDRESS) pio
+CHIME_VOLUME = /Volumes/NO\ NAME
 
 env:
 	@echo ESP_HOSTNAME=$(ESP_HOSTNAME)
@@ -20,6 +21,7 @@ console: env
 	$(PIO_CLI) device monitor
 
 copychimes:
-	rm /Volumes/NO\ NAME/*
-	cp chimes/* /Volumes/NO\ NAME/
-	dot_clean -v -m /Volumes/NO\ NAME
+	rm $(CHIME_VOLUME)/*
+	cp chimes/* $(CHIME_VOLUME)/
+	dot_clean -v -m $(CHIME_VOLUME)
+	diskutil eject $(CHIME_VOLUME)
