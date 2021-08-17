@@ -1,8 +1,7 @@
 BAUD = 115200
 PIO = pio
 HOSTNAME1 = doorbell-chime-hallway.local
-#HOSTNAME2 = doorbell-chime-livingroom.local
-HOSTNAME2 = 192.168.101.153
+HOSTNAME2 = doorbell-chime-livingroom.local
 
 compile: 
 	$(PIO) run

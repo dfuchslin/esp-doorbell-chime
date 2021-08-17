@@ -17,7 +17,7 @@
 #define PREFS_VOLUME "volume"
 #define PREFS_CHIME "chime"
 
-const char *hostname = "doorbell-chime-livingroom";
+const char *hostname = "doorbell-chime-hallway";
 const uint16_t UDP_PORT = 4711;
 
 AsyncWebServer server(80);
@@ -28,6 +28,9 @@ AsyncUDP udp;
 HardwareSerial DF1201SSerial(1);
 DFRobot_PLAY DF1201S;
 Preferences preferences;
+
+unsigned long chimeLastTriggered = 0;
+bool chimeTriggered = false;
 
 void health(AsyncWebServerRequest *request)
 {
@@ -167,10 +170,22 @@ void setupUDPServer()
   if (udp.listen(UDP_PORT))
   {
     udp.onPacket([](AsyncUDPPacket packet)
-                 {
-                   DF1201S.setPlayMode(DF1201S.SINGLE);
-                   DF1201S.playFileNum(preferences.getShort(PREFS_CHIME, 1));
-                 });
+                 { chimeTriggered = true; });
+  }
+}
+
+void handleChimeTrigger()
+{
+  if (chimeTriggered)
+  {
+    chimeTriggered = false;
+    if (chimeLastTriggered < (millis() - 250))
+    {
+      chimeLastTriggered = millis();
+      Serial.println("Chime triggered");
+      DF1201S.setPlayMode(DF1201S.SINGLE);
+      DF1201S.playFileNum(preferences.getShort(PREFS_CHIME, 1));
+    }
   }
 }
 
@@ -201,4 +216,5 @@ void setup(void)
 void loop(void)
 {
   ArduinoOTA.handle();
+  handleChimeTrigger();
 }

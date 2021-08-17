@@ -14,13 +14,12 @@ const uint8_t DOORBELL_PIN = D6;
 const uint16_t UDP_PORT = 4711;
 
 AsyncWebServer server(80);
-DNSServer dns; 
+DNSServer dns;
 AsyncWiFiManager wifiManager(&server, &dns);
 AsyncUDP udp;
 
 unsigned long doorbellLastTriggered = 0;
 bool doorbellTriggered = false;
-
 
 void health(AsyncWebServerRequest *request)
 {
@@ -71,7 +70,7 @@ void routing()
   server.on("/reboot", HTTP_POST, reboot);
   server.on("/ring", HTTP_GET, ring);
   server.onNotFound([](AsyncWebServerRequest *request)
-            { request->send(404, "text/plain", "Not found"); });
+                    { request->send(404, "text/plain", "Not found"); });
 }
 
 void IRAM_ATTR handleDoorbellInterrupt()
@@ -88,7 +87,11 @@ void handleDoorbellTrigger()
     {
       doorbellLastTriggered = millis();
       Serial.println("Doorbell triggered");
-      udp.broadcastTo("ring", UDP_PORT);
+      // Send a few packets since some have been missed by the chimes
+      for (int i = 0; i < 5; i++)
+      {
+        udp.broadcastTo("ring", UDP_PORT);
+      }
     }
   }
 }
