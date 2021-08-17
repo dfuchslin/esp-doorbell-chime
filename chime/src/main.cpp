@@ -1,3 +1,6 @@
+#define XSTR(x) #x
+#define STR(x) XSTR(x)
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
@@ -17,7 +20,8 @@
 #define PREFS_VOLUME "volume"
 #define PREFS_CHIME "chime"
 
-const char *hostname = "doorbell-chime-hallway";
+#pragma message "Setting hostname to " STR(HOSTNAME)
+const char *hostname = STR(HOSTNAME);
 const uint16_t UDP_PORT = 4711;
 
 AsyncWebServer server(80);

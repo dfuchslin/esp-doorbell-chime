@@ -1,23 +1,25 @@
-BAUD = 115200
-PIO = pio
-HOSTNAME1 = doorbell-chime-hallway.local
-HOSTNAME2 = doorbell-chime-livingroom.local
+# thanks oreilly https://www.oreilly.com/library/view/managing-projects-with/0596006101/ch03.html
+ESP_HOSTNAME ?= $(if $1,$$ESP_HOSTNAME,$(error You must set 'ESP_HOSTNAME'))
+ESP_NETWORKADDRESS ?= $(if $1,ESP_NETWORKADDRESS,$$ESP_HOSTNAME.local)
+PIO_CLI = ESP_HOSTNAME=$(ESP_HOSTNAME) ESP_NETWORKADDRESS=$(ESP_NETWORKADDRESS) pio
 
-compile: 
-	$(PIO) run
+env:
+	@echo ESP_HOSTNAME=$(ESP_HOSTNAME)
+	@echo ESP_NETWORKADDRESS=$(ESP_NETWORKADDRESS)
 
-flash: 
-	$(PIO) run -t upload
+compile: env
+	$(PIO_CLI) run
 
-upload1:
-	$(PIO) run -t upload -e tinypico_ota --upload-port $(HOSTNAME1)
+flash: env
+	$(PIO_CLI) run -t upload
 
-upload2:
-	$(PIO) run -t upload -e tinypico_ota --upload-port $(HOSTNAME2)
+upload: env
+	$(PIO_CLI) run -t upload -e ota
 
-console:
-	$(PIO) device monitor -b $(BAUD)
+console: env
+	$(PIO_CLI) device monitor
 
 copychimes:
+	rm /Volumes/NO\ NAME/*
 	cp chimes/* /Volumes/NO\ NAME/
 	dot_clean -v -m /Volumes/NO\ NAME

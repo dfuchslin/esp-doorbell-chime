@@ -1,3 +1,6 @@
+#define XSTR(x) #x
+#define STR(x) XSTR(x)
+
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
@@ -9,7 +12,9 @@
 #include <ESPAsyncWebServer.h>
 #include <ESPAsyncUDP.h>
 
-const char *hostname = "doorbell-controller";
+#pragma message "Setting hostname to " STR(HOSTNAME)
+const char *hostname = STR(HOSTNAME);
+
 const uint8_t DOORBELL_PIN = D6;
 const uint16_t UDP_PORT = 4711;
 
