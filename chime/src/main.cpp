@@ -199,9 +199,11 @@ void setup(void)
   Serial.println("Starting up");
 
   WiFi.mode(WIFI_STA);
+  WiFi.setHostname(hostname);
   WiFi.persistent(true); // https://github.com/alanswx/ESPAsyncWiFiManager/issues/83
   wifiManager.autoConnect();
 
+  ArduinoOTA.setHostname(hostname);
   ArduinoOTA.setPort(8266);
   ArduinoOTA.begin();
 
