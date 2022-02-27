@@ -8,12 +8,13 @@
 #include <WiFiClient.h>
 #include <ArduinoOTA.h>
 #include <ESPAsyncWebServer.h>
-#include "AsyncUDP.h"
+#include "AsyncJson.h"
+#include "ArduinoJson.h"
 #include <PubSubClient.h>
 
 #include <Preferences.h>
 
-#include <DFRobot_PLAY.h>
+#include <DFRobot_DF1201S.h>
 #include <HardwareSerial.h>
 
 #define DFPLAYER_TX 14
@@ -23,7 +24,6 @@
 
 #pragma message "Setting hostname to " STR(HOSTNAME)
 const char *hostname = STR(HOSTNAME);
-const uint16_t UDP_PORT = 4711;
 
 // MQTT Broker
 const char *mqtt_broker = "192.168.101.10";
@@ -40,14 +40,13 @@ long mqttTopicTriggered = 0;
 AsyncWebServer server(80);
 DNSServer dns;
 AsyncWiFiManager wifiManager(&server, &dns);
-AsyncUDP udp;
 
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
 
 
 HardwareSerial DF1201SSerial(1);
-DFRobot_PLAY DF1201S;
+DFRobot_DF1201S DF1201S;
 Preferences preferences;
 
 unsigned long chimeLastTriggered = 0;
@@ -60,35 +59,22 @@ void health(AsyncWebServerRequest *request)
 
 void status(AsyncWebServerRequest *request)
 {
-  String status = "{";
-  char vol[16];
-  snprintf(vol, sizeof(vol), "\"volume\":%u", DF1201S.getVol());
-  status += String(vol);
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
 
-  status += ",\"chimes\":{";
+  StaticJsonDocument<192> doc;
+  doc["volume"] = DF1201S.getVol();
 
-  char active[16];
-  snprintf(active, sizeof(active), "\"active\":%u", preferences.getShort(PREFS_CHIME, 1));
-  status += String(active) + ",";
+  JsonObject chimes = doc.createNestedObject("chimes");
+  chimes["active"] = preferences.getShort(PREFS_CHIME, 1);
+  chimes["total"] = DF1201S.getTotalFile();
 
-  char total[16];
-  snprintf(total, sizeof(total), "\"total\":%u", DF1201S.getTotalFile());
-  status += String(total);
-  status += "}";
+  JsonObject mqtt = doc.createNestedObject("mqtt");
+  mqtt["connected"] = client.connected();
+  mqtt["events"] = mqttTopicTriggered;
+  mqtt["disconnects"] = mqttDisconnectedCount;
 
-  status += ",\"mqtt\":{";
-  status += "\"connected\":\"" + String(client.connected()) + "\",";
-  char events[24];
-  snprintf(events, sizeof(events), "\"events\":%lu", mqttTopicTriggered);
-  status += String(events) + ",";
-  char disconnects[24];
-  snprintf(disconnects, sizeof(disconnects), "\"disconnects\":%lu", mqttDisconnectedCount);
-  status += String(disconnects);
-  status += "}";
-
-  status += "}";
-
-  request->send(200, "application/json", status);
+  serializeJson(doc, *response);
+  request->send(response);
 }
 
 void metrics(AsyncWebServerRequest *request)
@@ -195,14 +181,11 @@ void setupDFPLayer()
   DF1201S.setVol(preferences.getUChar(PREFS_VOLUME, 10));
 }
 
-void setupUDPServer()
+void triggerChime()
 {
-  // https://github.com/me-no-dev/ESPAsyncUDP/blob/master/examples/AsyncUDPServer/AsyncUDPServer.ino
-  if (udp.listen(UDP_PORT))
-  {
-    udp.onPacket([](AsyncUDPPacket packet)
-                 { chimeTriggered = true; });
-  }
+  Serial.println("Chime triggered");
+  DF1201S.setPlayMode(DF1201S.SINGLE);
+  DF1201S.playFileNum(preferences.getShort(PREFS_CHIME, 1));
 }
 
 void handleMQTTEvent(char* topic, byte* rawMessage, unsigned int length) {
@@ -213,8 +196,9 @@ void handleMQTTEvent(char* topic, byte* rawMessage, unsigned int length) {
   }
 
   mqttTopicTriggered++;
-  if (String(message) == "true") {
-    chimeTriggered = true;
+  if (String(message) == "true")
+  {
+    triggerChime();
   }
 }
 
@@ -244,21 +228,6 @@ void handleMQTTReconnect()
   client.loop();
 }
 
-void handleChimeTrigger()
-{
-  if (chimeTriggered)
-  {
-    chimeTriggered = false;
-    if (chimeLastTriggered < (millis() - 250))
-    {
-      chimeLastTriggered = millis();
-      Serial.println("Chime triggered");
-      DF1201S.setPlayMode(DF1201S.SINGLE);
-      DF1201S.playFileNum(preferences.getShort(PREFS_CHIME, 1));
-    }
-  }
-}
-
 void setup(void)
 {
   Serial.begin(115200);
@@ -281,7 +250,6 @@ void setup(void)
 
   setupMQTT();
 
-  // setupUDPServer();
   setupDFPLayer();
 
   Serial.println("Ready");
@@ -291,5 +259,4 @@ void loop(void)
 {
   ArduinoOTA.handle();
   handleMQTTReconnect();
-  handleChimeTrigger();
 }
