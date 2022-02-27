@@ -281,7 +281,7 @@ void setup(void)
 
   setupMQTT();
 
-  setupUDPServer();
+  // setupUDPServer();
   setupDFPLayer();
 
   Serial.println("Ready");
