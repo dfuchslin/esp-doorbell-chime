@@ -9,6 +9,7 @@
 #include <ArduinoOTA.h>
 #include <ESPAsyncWebServer.h>
 #include "AsyncUDP.h"
+#include <PubSubClient.h>
 
 #include <Preferences.h>
 
@@ -24,10 +25,26 @@
 const char *hostname = STR(HOSTNAME);
 const uint16_t UDP_PORT = 4711;
 
+// MQTT Broker
+const char *mqtt_broker = "192.168.101.10";
+const char *topic = "unifi/protect/74ACB90B0727/doorbell";
+// const char *mqtt_username = "user";
+// const char *mqtt_password = "pass";
+const int mqtt_port = 1883;
+#define MQTT_RECONNECT_INTERVAL 2000
+long mqttLastReconnected = 0;
+long mqttDisconnectedCount = 0;
+long mqttTopicTriggered = 0;
+
+
 AsyncWebServer server(80);
 DNSServer dns;
 AsyncWiFiManager wifiManager(&server, &dns);
 AsyncUDP udp;
+
+WiFiClient wifiClient;
+PubSubClient client(wifiClient);
+
 
 HardwareSerial DF1201SSerial(1);
 DFRobot_PLAY DF1201S;
@@ -57,6 +74,16 @@ void status(AsyncWebServerRequest *request)
   char total[16];
   snprintf(total, sizeof(total), "\"total\":%u", DF1201S.getTotalFile());
   status += String(total);
+  status += "}";
+
+  status += ",\"mqtt\":{";
+  status += "\"connected\":\"" + String(client.connected()) + "\",";
+  char events[24];
+  snprintf(events, sizeof(events), "\"events\":%lu", mqttTopicTriggered);
+  status += String(events) + ",";
+  char disconnects[24];
+  snprintf(disconnects, sizeof(disconnects), "\"disconnects\":%lu", mqttDisconnectedCount);
+  status += String(disconnects);
   status += "}";
 
   status += "}";
@@ -178,6 +205,45 @@ void setupUDPServer()
   }
 }
 
+void handleMQTTEvent(char* topic, byte* rawMessage, unsigned int length) {
+  String message;
+  for (int i = 0; i < length; i++)
+  {
+    message += (char)rawMessage[i];
+  }
+
+  mqttTopicTriggered++;
+  if (String(message) == "true") {
+    chimeTriggered = true;
+  }
+}
+
+void setupMQTT()
+{
+  client.setServer(mqtt_broker, mqtt_port);
+  client.setCallback(handleMQTTEvent);
+}
+
+void handleMQTTReconnect()
+{
+  if (!client.connected())
+  {
+    long now = millis();
+    if (now - mqttLastReconnected > MQTT_RECONNECT_INTERVAL)
+    {
+      String client_id = "esp32-client-" + String(WiFi.macAddress());
+      //if (client.connect(client_id.c_str(), mqtt_username, mqtt_password))
+      if (client.connect(client_id.c_str()))
+      {
+        client.subscribe(topic);
+      } else {
+        mqttDisconnectedCount++;
+      }
+    }
+  }
+  client.loop();
+}
+
 void handleChimeTrigger()
 {
   if (chimeTriggered)
@@ -213,6 +279,8 @@ void setup(void)
   routing();
   server.begin();
 
+  setupMQTT();
+
   setupUDPServer();
   setupDFPLayer();
 
@@ -222,5 +290,6 @@ void setup(void)
 void loop(void)
 {
   ArduinoOTA.handle();
+  handleMQTTReconnect();
   handleChimeTrigger();
 }
