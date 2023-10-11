@@ -39,9 +39,9 @@ void status(AsyncWebServerRequest *request)
 
 void metrics(AsyncWebServerRequest *request)
 {
-  String message = F("# HELP esp8266_up Is this host up\n");
-  message += F("# HELP esp8266_up gauge\n");
-  message += F("esp8266_up 1\n");
+  String message = F("# HELP esp_up Is this host up\n");
+  message += F("# HELP esp_up gauge\n");
+  message += F("esp_up 1\n");
 
   request->send(200, "text/plain", message);
 }
@@ -101,6 +101,11 @@ void handleDoorbellTrigger()
   }
 }
 
+void handleWiFiDisconnect(WiFiEvent_t event){
+  Serial.print("Wifi disconnected, reconnecting...");
+  WiFi.setAutoReconnect(true);
+}
+
 void setup(void)
 {
   Serial.begin(115200);
@@ -111,6 +116,7 @@ void setup(void)
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(hostname);
   WiFi.persistent(true); // https://github.com/alanswx/ESPAsyncWiFiManager/issues/83
+  WiFi.onEvent(handleWiFiDisconnect, WIFI_EVENT_STAMODE_DISCONNECTED);
   wifiManager.autoConnect();
 
   ArduinoOTA.setHostname(hostname);

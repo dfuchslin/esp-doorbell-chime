@@ -1,3 +1,8 @@
+ifneq (,$(wildcard ./.env))
+	include .env
+	export
+endif
+
 # thanks oreilly https://www.oreilly.com/library/view/managing-projects-with/0596006101/ch03.html
 ESP_HOSTNAME ?= $(if $1,$$ESP_HOSTNAME,$(error You must set 'ESP_HOSTNAME'))
 ESP_NETWORKADDRESS ?= $(if $1,ESP_NETWORKADDRESS,$$ESP_HOSTNAME.local)
